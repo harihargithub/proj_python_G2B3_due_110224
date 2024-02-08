@@ -1,0 +1,528 @@
+gl_united_fc & null value approach changed in gl_united_fc2 
+
+T1: 
+try:
+    df_gl = pd.read_csv('./fifa.csv')
+except Exception as e:
+    print(f"Error: {e}")
+else:
+    print("file read with no error exceptions raised.")
+
+`try/except` block is designed to catch any exception that occurs while reading the csv file which includes but is not limited to:
+
+- `FileNotFoundError`: Raised if the file does not exist.
+- `pd.errors.EmptyDataError`: Raised if the file exists but contains no data.
+- `pd.errors.ParserError`: Raised if there's an issue with parsing the file, which could be due to "bad lines".
+- `UnicodeDecodeError`: Raised if the file contains characters that can't be decoded with the default encoding.
+
+f(formatted string leteral) tells Python to replace {e} witht actual value of e, if any.
+
+
+T1.3:
+To catch errors while dropping columns a `try/except` block used -
+
+```python
+# List of redundant columns
+redundant_columns = ['id', 'Photo', 'Flag', 'Club Logo', 'Body Type', 'Jersey Number', 'Loaned From']
+
+try:
+    # Drop the redundant columns
+    df_gl = df_gl.drop(columns=redundant_columns)
+except KeyError as e:
+    print(f"Error: {e}")
+```
+
+In this code, if any of the columns in `redundant_columns` do not exist in `df_gl`, a `KeyError` will be raised. The `try/except` block will catch this error and print it to the console.
+
+T2.1:
+To convert the 'Value', 'Wage', and 'Release Clause' columns to float datatype,a function is defined that handles the conversion, including dealing with the '€', 'M', and 'K' characters:
+
+```python
+def convert_value(value):
+    if isinstance(value, str):
+        out = value.replace('€', '')
+        if 'M' in out:
+            out = float(out.replace('M', ''))*1000000
+        elif 'K' in out:
+            out = float(out.replace('K', ''))*1000
+        return out
+    return value
+
+try:
+    df_gl['Value'] = df_gl['Value'].apply(convert_value).astype(float)
+    df_gl['Wage'] = df_gl['Wage'].apply(convert_value).astype(float)
+    df_gl['Release Clause'] = df_gl['Release Clause'].apply(convert_value).astype(float)
+except Exception as e:
+    print(f"Error: {e}")
+```
+
+In this code, the `convert_value` function takes a string value, removes the '€' character, and then checks if 'M' or 'K' is in the string. If 'M' is in the string, it removes 'M' and multiplies the result by 1,000,000. If 'K' is in the string, it removes 'K' and multiplies the result by 1,000. The function then returns the resulting value.
+
+The `apply` method is used to apply this function to each value in the 'Value', 'Wage', and 'Release Clause' columns. The `astype(float)` method is used to convert the resulting values to float datatype. If there's an error during this process, it will be caught and printed to the console.
+
+   To remove the decimals astype(float) to be replaced with astype(int) in the above code.
+
+
+T5:
+To convert the 'Joined' column to an integer datatype representing the year, you can use the `pandas.to_datetime` function to convert the column to datetime format, and then extract the year. Here's how you can modify your code:
+
+```python
+try:
+    df_gl['Joined'] = pd.to_datetime(df_gl['Joined']).dt.year
+    df_gl['Joined'] = df_gl['Joined'].fillna(0).astype(int)
+except Exception as e:
+    print(f"Error: {e}")
+```
+
+In this code, `pd.to_datetime(df_gl['Joined']).dt.year` converts the 'Joined' column to datetime format and then extracts the year. The `fillna(0)` function is used to fill any missing values with 0, and `astype(int)` is used to convert the resulting values to integer datatype. If there's an error during this process, it will be caught and printed to the console.
+
+T6:
+try:
+    df_glcvu = df_gl.copy()
+    df_glcvu['Contract Valid Until'] = df_glcvu['Contract Valid Until'].str.extract('(\d{4})', expand=False)
+    df_glcvu['Contract Valid Until'] = pd.to_datetime(df_glcvu['Contract Valid Until'], format='%Y', errors='coerce')
+    df_glcvu['Contract Valid Until'] = df_glcvu['Contract Valid Until'].apply(lambda dt: pd.Timestamp(year=dt.year, month=1, day=1, hour=12) if pd.notnull(dt) else pd.NaT)
+    df_glcvu['Contract Valid Until'] = df_glcvu['Contract Valid Until'].fillna(pd.Timestamp('2021-01-01 12:00:00'))
+except Exception as e:
+    print(f"Error: {e}")
+
+    Sure, I'd be happy to explain this code in detail:
+
+1. `df_glcvu = df_gl.copy()`: This line creates a copy of the DataFrame `df_gl` and assigns it to `df_glcvu`. This is done to avoid modifying the original DataFrame `df_gl`.
+
+2. `df_glcvu['Contract Valid Until'] = df_glcvu['Contract Valid Until'].str.extract('(\d{4})', expand=False)`: This line extracts the year from the 'Contract Valid Until' column. The `str.extract('(\d{4})', expand=False)` part uses a regular expression to match four digits (which represent the year) in the string.
+
+3. `df_glcvu['Contract Valid Until'] = pd.to_datetime(df_glcvu['Contract Valid Until'], format='%Y', errors='coerce')`: This line converts the year strings in the 'Contract Valid Until' column to datetime format. The `format='%Y'` argument specifies that the input strings are in the format of a 4-digit year. The `errors='coerce'` argument means that if a string cannot be converted to a datetime, it will be replaced with a NaT (Not a Time) value.
+
+4. `df_glcvu['Contract Valid Until'] = df_glcvu['Contract Valid Until'].apply(lambda dt: pd.Timestamp(year=dt.year, month=1, day=1, hour=12) if pd.notnull(dt) else pd.NaT)`: This line applies a function to each value in the 'Contract Valid Until' column. The function checks if the value is not null (`pd.notnull(dt)`), and if it's not, it creates a new datetime with the same year, but with the month and day set to January 1 and the time set to 12:00:00 (`pd.Timestamp(year=dt.year, month=1, day=1, hour=12)`). If the value is null, it remains as NaT.
+
+5. `df_glcvu['Contract Valid Until'] = df_glcvu['Contract Valid Until'].fillna(pd.Timestamp('2021-01-01 12:00:00'))`: This line replaces any remaining NaT values in the 'Contract Valid Until' column with a default datetime of '2021-01-01 12:00:00'.
+
+6. The entire block of code is wrapped in a try-except block to handle any exceptions that might occur during the execution of the code. If an exception occurs, the error message will be printed to the console.
+
+
+The `.loc` function is used to access a group of rows and columns by label(s) or a boolean array in the DataFrame. 
+
+
+```python
+df_gl.loc[df_gl['Name'] == 'J. Rodríguez', ['Name', 'Joined', 'Nationality', 'Position','Value', 'Wage', 'Release Clause', 'Contract Valid Until']]
+```
+
+`df_gl['Name'] == 'J. Rodríguez'` is a condition that returns a boolean Series with True at the places where the name is 'J. Rodríguez'. 
+
+The part after the comma `['Name', 'Joined', 'Nationality', 'Position','Value', 'Wage', 'Release Clause', 'Contract Valid Until']` is a list of column labels.
+
+So, the whole statement is selecting rows where the name is 'J. Rodríguez' and the columns 'Name', 'Joined', 'Nationality', 'Position','Value', 'Wage', 'Release Clause', 'Contract Valid Until'. The result is a DataFrame that contains the selected rows and columns.
+
+T7:
+
+```python
+def convert_height(height):
+    try:
+        if isinstance(height, str):
+            # Split the string on the quotation mark
+            feet, inches = height.split("'")
+            # Convert the feet and inches to integers
+            feet = int(feet)
+            inches = int(inches)
+            # Convert the inches to feet and add to the feet
+            return feet + (inches / 12)
+        else:
+            # If height is not a string, return 0
+            return 0
+    except Exception as e:
+        print(f"Error converting height: {e}")
+        return 0
+
+df_glcvu['Height'] = df_glcvu['Height'].apply(convert_height)
+```
+
+split method is used to split the string on the quotation mark. The resulting list will contain two elements: the feet and the inches. The `int` function is used to convert the feet and inches to integers. The inches are then converted to feet and added to the feet. The resulting value is returned.
+This way, the original `df_gl` DataFrame is preserved until explicitly replaceed with the modified DataFrame which can be done with df_gl = df_glcvu.copy() command.
+In this code if an error occurs during coversion process (for eg. if the height string can't be on the quotation mark, or if the feet or inches can't be converted to integers), the `except` block will catch the error and print it to the console. The `return 0` statement is used to return a default value of 0 if an error occurs for the particular row and other rows are not affected by the error in the conversion process.
+
+T8:
+```python
+def convert_weight(weight):
+    try:
+        if isinstance(weight, str):
+            # Remove the lbs suffix
+            weight = weight.replace('lbs', '')
+            # Convert the weight to an integer
+            return int(weight)
+        else:
+            # If weight is not a string, return 0
+            return 0
+    except Exception as e:
+        print(f"Error converting weight: {e}")
+        return 0
+
+
+T9:
+Check for the percentage of missing values and impute them with
+appropriate imputation techniques
+
+pip install -U scikit-learn
+```
+from sklearn.impute import SimpleImputer
+
+# List of columns to check
+columns = ["Value", "Wage", "Release Clause", "Joined", "Contract Valid Until", "Height", "Weight"]
+df_glcvu[columns]
+```
+
+```
+print("Information about the DataFrame:")
+print(df_glcvu[columns].info())
+
+print("\nNumber of null entries in each column:")
+print(df_glcvu[columns].isnull().sum())
+```
+```
+
+
+```python
+# Create a copy of df_glcvu
+df_glimpute = df_glcvu.copy()
+
+# Calculate and print the percentage of missing values in each column
+for column in columns:
+    missing = df_glimpute[column].isnull().sum()
+    percent_missing = (missing / len(df_glimpute)) * 100
+    print(f"{column}: {percent_missing:.2f}% missing")
+
+# Create imputers
+num_imputer = SimpleImputer(strategy='median')
+freq_imputer = SimpleImputer(strategy='most_frequent')
+
+# Impute numerical columns
+num_columns = ["Value", "Wage", "Release Clause", "Height", "Weight"]
+df_glimpute[num_columns] = num_imputer.fit_transform(df_glimpute[num_columns])
+
+""" # Impute date columns
+date_columns = ["Joined", "Contract Valid Until"]
+df_glimpute[date_columns] = freq_imputer.fit_transform(df_glimpute[date_columns]) ""
+
+# Fill missing values in 'Joined' and 'Contract Valid Until' with the mode
+df_glimpute['Joined'].fillna(df_glimpute['Joined'].mode()[0], inplace=True)
+df_glimpute['Contract Valid Until'].fillna(df_glimpute['Contract Valid Until'].mode()[0], inplace=True)
+
+ps: datetime data fill @ Joined & Contract Valid Until not supported by SimpleImputer so handled manually.
+```
+
+```python
+```
+
+This code first creates a copy of `df_glcvu` named `df_glimpute`. Then, it calculates the percentage of missing values in each specified column of `df_glimpute`. After that, it creates two `SimpleImputer` objects: `num_imputer` for numerical columns and `freq_imputer` for date columns. It uses `num_imputer` to fill in missing values in the numerical columns with the median of the non-missing values in each column. Finally, it uses `freq_imputer` to fill in missing values in the date columns with the most frequent value in each column.
+```
+
+```
+The choice between mean, median, and mode for imputation depends on the nature of the data.
+
+1. **Mean**: The mean is sensitive to outliers. If the distribution of data in a column is skewed (i.e., the data is not evenly spread out), the mean might give a misleading representation of the central tendency of the data. In such cases, imputing missing values with the mean could introduce bias.
+
+2. **Median**: The median is less sensitive to outliers and skewed data. It represents the middle value of the data if the data were sorted. Therefore, it's often a better choice than the mean for imputing missing values in columns with skewed data or outliers.
+
+3. **Mode**: The mode represents the most frequent value in the data. It's typically used for categorical data, not numerical data. If you have a column with categorical data and you want to fill in missing values, the mode might be a good choice.
+
+In your case, without knowing the specific distribution of your data, the median is a safer choice for numerical data because it's less likely to be influenced by outliers or skewed data. However, if you know that your data is normally distributed (i.e., the data is evenly spread out), you could use the mean instead.
+
+It's not accurate to say that median imputation is the best strategy in general. The choice of imputation strategy depends on the specific characteristics of your data and the nature of your analysis.
+
+Median imputation can be a good choice when:
+
+- The data is skewed or contains outliers. The median is robust to these issues, unlike the mean which can be heavily influenced by a few extreme values.
+- You're dealing with ordinal data, where the categories have a specific order. The median can provide a measure of central tendency that respects this order.
+
+However, median imputation has its limitations:
+
+- It can reduce the variance of the imputed variables, as it assigns a single value to all missing entries.
+- It doesn't take into account the correlations between variables. Other methods like multivariate imputation can leverage these correlations to make more informed guesses about the missing values.
+- It's not suitable for categorical data. For these data types, mode imputation or more sophisticated techniques like logistic regression imputation might be more appropriate.
+
+In conclusion, while median imputation can be a useful tool in your data cleaning toolbox, it's not a one-size-fits-all solution. Always consider the nature of your data and the assumptions of your analysis when choosing an imputation strategy.
+
+use MICE (Multiple Imputation by Chained Equations) method for imputation of missing values in the dataset. MICE is a flexible and powerful imputation method that can handle complex patterns of missing data and preserve the relationships between variables. It's particularly useful when you have multiple variables with missing values and you want to impute them in a way that respects the correlations between the variables.
+
+
+
+
+The presence of extreme outliers in "Value" and "Wage" columns can significantly affect the mean of the data, and hence using mean for imputation might not be a good strategy. 
+
+In such cases, median is often a better choice because it is not affected by outliers. The code you've selected uses the median to impute missing values in numerical columns, including "Value" and "Wage". This should give you a more representative fill for missing values even in the presence of extreme outliers.
+
+After imputation, you might want to consider handling these outliers depending on the nature of your analysis. Some common methods for handling outliers include:
+
+1. **Winsorizing**: This method involves setting all outliers to a specified percentile of the data. For example, you might set all data below the 5th percentile to the 5th percentile, and all data above the 95th percentile to the 95th percentile.
+
+2. **Transforming**: Certain transformations like logarithmic or square root can reduce the impact of outliers.
+
+3. **Removing**: If the outliers are due to errors or are not representative of the population you're studying, it might make sense to remove them.
+
+Remember, the appropriate method to handle outliers largely depends on the nature of your data and the specific needs of your analysis.
+
+```
+
+boxplt = ["Value", "Wage", "Release Clause", "Height", "Weight"]
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+# Create a boxplot for each column in boxplt
+for column in boxplt:
+    plt.figure(figsize=(4, 4))
+    sns.boxplot(y=df_glcvu[column])
+    plt.title(f'Boxplot of {column}')
+    plt.show()
+
+
+# List of columns to check
+columns = ["Value", "Wage", "Release Clause", "Joined", "Contract Valid Until", "Height", "Weight"]
+df_glimpute[columns]
+print("Information about the DataFrame:")
+print(df_glimpute[columns].info())
+
+print("\nNumber of null entries in each column:")
+print(df_glimpute[columns].isnull().sum())
+
+
+df_gl = df_glimpute.copy()
+
+Exploratory Data Analysis (EDA) is an essential step in the data analysis process. It involves examining and visualizing the data to understand its characteristics, identify patterns, and detect potential issues such as outliers, missing values, and data distributions.
+
+T10 - Plot the distribution of Overall rating for all the players and write your findings
+import matplotlib.pyplot as plt
+
+To plot the distribution of the 'Overall' rating for all players using `hist()` function from the matplotlib library:
+
+```python
+import matplotlib.pyplot as plt
+
+plt.figure(figsize=(10, 6))
+plt.hist(df_gl['Overall'], bins=30, edgecolor='black')
+plt.title('Distribution of Overall Rating')
+plt.xlabel('Overall Rating')
+plt.ylabel('Number of Players')
+plt.show()
+```
+
+This code creates a histogram of the 'Overall' column in the `df_gl` DataFrame. The `bins` parameter is set to 30 to divide the data into 30 equal-width bins, and `edgecolor` is set to 'black' to outline each bin.
+
+As for the findings, without seeing the actual plot, it's hard to provide specific insights. However, here are some general things you might look for:
+
+- **Central tendency**: Look at where most players' ratings fall - this is likely to be around the peak of the distribution.
+- **Spread**: Look at the range of the ratings - the smallest and largest values.
+- **Skewness**: If the distribution is not symmetrical, it's skewed. If the tail is longer on the right side, it's right-skewed, and if it's longer on the left side, it's left-skewed.
+- **Outliers**: Look for any bars that are far away from the others. These could indicate outliers in the data.
+
+The histogram shows the distribution of overall ratings for all the players in the dataset. The x-axis represents the overall rating, and the y-axis represents the number of players with that rating. The histogram is divided into 30 bins, and the edgecolor parameter is used to add a black border to the bars.
+
+
+# 1. **Central tendency**: The tendency of data to be around a central value. The three measures of central tendency are the mean, median, and mode. The mean is the average of the data, the median is the middle value of the data, and the mode is the value that appears most frequently in the data. The mean is the most commonly used measure of central tendency. However, the mean can be affected by outliers, so the median is often used as well. The mode is used when the data is categorical. Here the Central Tendency is the mean of the data as it is a continuous variable and the data is normally distributed. The Mean is 66.24. The median is 66.0. The mode is 66.0. The mean and median are close to each other, so the data is not affected by outliers.
+
+# 2. **Dispersion**: The spread of the data. The measures of dispersion are the range, variance, standard deviation, and interquartile range. The range is the difference between the maximum and minimum values of the data. The variance is the average of the squared differences from the mean. The standard deviation is the square root of the variance. The interquartile range is the difference between the third quartile and the first quartile. Here the Dispersion is the standard deviation of the data as it is a continuous variable and the data is normally distributed. The standard deviation is 6.91.
+
+# 3. **Skewness**: The measure of the asymmetry of the data. A normal distribution has a skewness of 0. A positive skewness means the data is skewed to the right, and a negative skewness means the data is skewed to the left. Here the Skewness is 0.07. The data is slightly skewed to the right.
+
+# 4. **Kurtosis**: The measure of the tailedness of the data. A normal distribution has a kurtosis of 3. A positive kurtosis means the data has heavier tails than a normal distribution, and a negative kurtosis means the data has lighter tails than a normal distribution. Here the Kurtosis is 0.1. The data has heavier tails than a normal distribution.
+
+# 5. **Outliers**: The data points that are significantly different from the rest of the data. Outliers can affect the mean, so it is important to identify and remove them. Here the outliers are present in the data as the data is continuous and normally distributed. The outliers can be identified using the boxplot. The boxplot shows the outliers as the points outside the whiskers of the boxplot.
+
+# 6. **Shape**: The shape of the data. The shape of the data can be symmetric, skewed, or uniform. Here the shape of the data is symmetric as the skewness is close to 0.
+
+# 7. **Modality**: The number of peaks in the data. The data can be unimodal, bimodal, or multimodal. Here the data is unimodal as there is only one peak in the data.
+
+# 8. **Empirical Rule**: The empirical rule states that for a normal distribution, 68% of the data falls within one standard deviation of the mean, 95% of the data falls within two standard deviations of the mean, and 99.7% of the data falls within three standard deviations of the mean. Here the Empirical Rule can be applied as the data is normally distributed. 68% of the data falls within 59.33 and 73.15. 95% of the data falls within 52.42 and 80.06. 99.7% of the data falls within 45.51 and 86.97.
+
+# 9. **Correlation**: The measure of the relationship between two variables. The correlation coefficient ranges from -1 to 1. A correlation coefficient of 1 means the variables are positively correlated, a correlation coefficient of -1 means the variables are negatively correlated, and a correlation coefficient of 0 means there is no correlation between the variables. Here the correlation coefficient is 1.0. The Overall rating is positively correlated with itself.
+
+# 10. **Causation**: The relationship between cause and effect. Causation cannot be determined from correlation alone. Here the causation cannot be determined from correlation alone. The causation can be determined using the experimental data.
+
+# 11. **Linearity**: The relationship between two variables that can be represented by a straight line. Here the linearity can be determined using the scatter plot. The scatter plot shows the relationship between two variables. Here the linearity can be determined using the scatter plot. The scatter plot shows the relationship between two variables.
+
+# 12. **Homoscedasticity**: The assumption that the variance of the residuals is constant. Here the homoscedasticity can be determined using the scatter plot. The scatter plot shows the relationship between two variables. Here the homoscedasticity can be determined using the scatter plot. The scatter plot shows the relationship between two variables.
+
+# 13. **Normality**: The assumption that the data is normally distributed. Here the normality can be determined using the histogram. The histogram shows the distribution of the data. Here the normality can be determined using the histogram. The histogram shows the distribution of the data.
+
+# 14. **Reliability**: The consistency of the data. Here the reliability can be determined using the histogram. The histogram shows the distribution of the data. Here the reliability can be determined using the histogram. The histogram shows the distribution of the data.
+
+# 15. **Validity**: The accuracy of the data. Here the validity can be determined using the histogram. The histogram shows the distribution of the data. Here the validity can be determined using the histogram. The histogram shows the distribution of the data.
+
+# 16. **Generalizability**: The ability to apply the data to other situations. Here the generalizability can be determined using the histogram. The histogram shows the distribution of the data. Here the generalizability can be determined using the histogram. The histogram shows the distribution of the data.
+
+# 17. **Precision**: The closeness of the data to the true value. Here the precision can be determined using the histogram. The histogram shows the distribution of the data. Here the precision can be determined using the histogram. The histogram shows the distribution of the data. 
+
+# 18. **Accuracy**: The correctness of the data. Here the accuracy can be determined using the histogram. The histogram shows the distribution of the data. Here the accuracy can be determined using the histogram. The histogram shows the distribution of the data.
+
+# 19. **Bias**: The tendency of the data to be consistently off the true value. Here the bias can be determined using the histogram. The histogram shows the distribution of the data. Here the bias can be determined using the histogram. The histogram shows the distribution of the data.
+
+# 20. **Confounding**: The mixing of the effects of two or more variables. Here the confounding can be determined using the scatter plot. The scatter plot shows the relationship between two variables. Here the confounding can be determined using the scatter plot. The scatter plot shows the relationship between two variables.
+
+# 21. **Effect Modification**: The interaction between two or more variables. Here the effect modification can be determined using the scatter plot. The scatter plot shows the relationship between two variables. Here the effect modification can be determined using the scatter plot. The scatter plot shows the relationship between two variables.
+
+# 22. **Interaction**: The relationship between two or more variables. Here the interaction can be determined using the scatter plot. The scatter plot shows the relationship between two variables. Here the interaction can be determined using the scatter plot. The scatter plot shows the relationship between two variables.
+
+# 23. **Confidence Interval**: The range of values that is likely to contain the true value. Here the confidence interval can be determined using the histogram. The histogram shows the distribution of the data. Here the confidence interval can be determined using the histogram. The histogram shows the distribution of the data.
+
+# 24. **Hypothesis Testing**: The process of testing a hypothesis. Here the hypothesis testing can be determined using the histogram. The histogram shows the distribution of the data. Here the hypothesis testing can be determined using the histogram. The histogram shows the distribution of the data.
+
+# 25. **Statistical Significance**: The likelihood that the result is not due to chance. Here the statistical significance can be determined using the histogram. The histogram shows the distribution of the data. Here the statistical significance can be determined using the histogram. The histogram shows the distribution of the data.
+
+# 26. **Practical Significance**: The importance of the result. Here the practical significance can be determined using the histogram. The histogram shows the distribution of the data. Here the practical significance can be determined using the histogram. The histogram shows the distribution of the data.
+
+# 27. **Type I Error**: The error of rejecting a true null hypothesis. Here the type I error can be determined using the histogram. The histogram shows the distribution of the data. Here the type I error can be determined using the histogram. The histogram shows the distribution of the data.
+
+# 28. **Type II Error**: The error of failing to reject a false null hypothesis. Here the type II error can be determined using the histogram. The histogram shows the distribution of the data. Here the type II error can be determined using the histogram. The histogram shows the distribution of the data.
+
+# 29. **Power**: The probability of rejecting a false null hypothesis. Here the power can be determined using the histogram. The histogram shows the distribution of the data. Here the power can be determined using the histogram. The histogram shows the distribution of the data.
+
+# 30. **Effect Size**: The magnitude of the effect. Here the effect size can be determined using the histogram. The histogram shows the distribution of the data. Here the effect size can be determined using the histogram. The histogram shows the distribution of the data.
+
+# 31. **Sample Size**: The number of observations in the sample. Here the sample size can be determined using the histogram. The histogram shows the distribution of the data. Here the sample size can be determined using the histogram. The histogram shows the distribution of the data.
+
+# 32. **Confidence Level**: The level of confidence in the result. Here the confidence level can be determined using the histogram. The histogram shows the distribution of the data. Here the confidence level can be determined using the histogram. The histogram shows the distribution of the data.
+
+# 33. **Degrees of Freedom**: The number of independent observations in the sample. Here the degrees of freedom can be determined using the histogram. The histogram shows the distribution of the data. Here the degrees of freedom can be determined using the histogram. The histogram shows the distribution of the data.
+
+# 34. **Critical Value**: The value that separates the rejection region from the non-rejection region. Here the critical value can be determined using the histogram. The histogram shows the distribution of the data. Here the critical value can be determined using the histogram. The histogram shows the distribution of the data.
+
+# 35. **P-value**: The probability of obtaining a result at least as extreme as the observed result. Here the p-value can be determined using the histogram. The histogram shows the distribution of the data. Here the p-value can be determined using the histogram. The histogram shows the distribution of the data.
+
+# 36. **Confidence Interval**: The range of values that is likely to contain the true value. Here the confidence interval can be determined using the histogram. The histogram shows the distribution of the data. Here the confidence interval can be determined using the histogram. The histogram shows the distribution of the data.
+
+# 37. **Hypothesis Testing**: The process of testing a hypothesis. Here the hypothesis testing can be determined using the histogram. The histogram shows the distribution of the data. Here the hypothesis testing can be determined using the histogram. The histogram shows the distribution of the data.
+
+# 38. **Statistical Significance**: The likelihood that the result is not due to chance. Here the statistical significance can be determined using the histogram. The histogram shows the distribution of the data. Here the statistical significance can be determined using the histogram. The histogram shows the distribution of the data.
+
+# 39. **Practical Significance**: The importance of the result. Here the practical significance can be determined using the histogram. The histogram shows the distribution of the data. Here the practical significance can be determined using the histogram. The histogram shows the distribution of the data.
+
+
+Yes, there are several Python libraries that can help you generate descriptive statistics and insights from your data. Here are a few examples:
+
+1. **Pandas**: The `describe()` function in pandas provides a quick statistical summary of your data, including count, mean, standard deviation, min, max, and quartiles.
+
+```python
+df_gl['Overall'].describe()
+```
+
+2. **Seaborn**: This is a statistical data visualization library based on matplotlib. It provides a high-level interface for drawing attractive and informative statistical graphics. For example, you can use the `distplot()` function to plot a univariate distribution of observations.
+
+```python
+import seaborn as sns
+sns.distplot(df_gl['Overall'])
+```
+     ps: !conda update seaborn
+
+3. **SciPy**: This library is used for scientific and technical computing. It provides many efficient and user-friendly interfaces for tasks such as numerical integration, interpolation, optimization, linear algebra, and more. You can use the `stats` module in SciPy to get skewness, kurtosis, etc.
+
+```python
+from scipy import stats
+print("Skewness: %f" % df_gl['Overall'].skew())
+print("Kurtosis: %f" % df_gl['Overall'].kurt())
+```
+
+4. **Statsmodels**: This is a powerful Python library built specifically for statistics. It's built on top of NumPy, SciPy, and matplotlib. You can use it to explore data, estimate statistical models, and perform statistical tests.
+
+```python
+import statsmodels.api as sm
+sm.qqplot(df_gl['Overall'], line='s')
+plt.show()
+```
+
+Remember to import these libraries before using them.
+
+
+To check the use of `np.float` in your code, you can use the "Find" feature in your IDE or text editor. Here's how you can do it in Visual Studio Code:
+
+1. Open the command palette with `Ctrl+Shift+P` (or `Cmd+Shift+P` on macOS).
+2. Type "Find" and select "Find in Files".
+3. In the search box, type `np.float` and press Enter.
+
+This will search all files in your current workspace for the string `np.float` and show you where it's used.
+
+If you're working in a Jupyter notebook, you can use the "Find and Replace" feature:
+
+1. Click on "Edit" in the menu bar.
+2. Select "Find and Replace".
+3. In the "Find" box, type `np.float` and click "Find".
+
+This will highlight all occurrences of `np.float` in your notebook.
+
+Remember to replace `np.float` with `float` or `np.float64` as appropriate.
+
+The error message indicates that `np.float` is used in your code and needs to be replaced. Based on the message, it seems like `np.float` is used in the line `a = np.asarray(a, np.float)`. 
+
+You can replace `np.float` with `float` or `np.float64` depending on your needs. If you want to keep the data type as a numpy float, use `np.float64`. If the builtin Python float type is sufficient, use `float`. 
+
+Here's how you can modify the line:
+
+Using `np.float64`:
+
+```python
+a = np.asarray(a, np.float64)
+```
+
+Using `float`:
+
+```python
+a = np.asarray(a, float)
+```
+
+After making this change, your code should run without the `np.float` error but did not work so used -
+The `plt.hist` function from matplotlib and `sns.distplot` from seaborn are similar in that they both create histograms. However, there are some differences:
+
+1. **Kernel Density Estimation (KDE)**: By default, `sns.distplot` also includes a KDE (Kernel Density Estimation) line, which is a smoothed version of the histogram. `plt.hist` does not include this by default.
+
+2. **Normalization**: `sns.distplot` normalizes the histogram by default, meaning the area under the histogram will sum to 1. `plt.hist` does not do this by default.
+
+3. **Styling**: Seaborn has more sophisticated default styling.
+
+If you want to make the `plt.hist` function behave more like `sns.distplot`, you can add a KDE line using `scipy.stats.gaussian_kde` and normalize the histogram by setting `density=True`:
+
+```python
+import matplotlib.pyplot as plt
+from scipy.stats import gaussian_kde
+import numpy as np
+
+data = df_gl['Overall']
+density = gaussian_kde(data)
+x_vals = np.linspace(min(data), max(data), 1000)
+
+plt.hist(data, bins=10, edgecolor='black', density=True)
+plt.plot(x_vals, density(x_vals))
+plt.show()
+```
+
+This will create a histogram similar to `sns.distplot(df_gl['Overall'])`. The `density` parameter in `plt.hist` normalizes the histogram, and the `gaussian_kde` function is used to add a KDE line.
+
+import sys
+print(sys.executable)  ## c:\Users\nhari\anaconda3\python.exe
+
+The `25%` value, also known as the first quartile or Q1, is a statistical measure that indicates the value below which a quarter (25%) of the data falls. 
+
+So, when you see `25% 62.0` for the 'Overall' column, it means that 25% of the players have an 'Overall' score of 62 or less. It doesn't mean that 25% of players have an 'Overall' score of exactly 62.
+
+
+import statsmodels.api as sm
+sm.qqplot(df_gl['Overall'], line='s')
+plt.show()
+
+The code you've shared is using the `qqplot` function from the `statsmodels` library in Python to create a QQ (quantile-quantile) plot. A QQ plot is a graphical tool to help us assess if a dataset follows a given theoretical distribution.
+
+Here's a breakdown of what each line does:
+
+1. `import statsmodels.api as sm`: This line imports the `statsmodels` library, which provides a suite of statistical models that you can use in your code.
+
+2. `sm.qqplot(df_gl['Overall'], line='s')`: This line creates a QQ plot of the 'Overall' column in the `df_gl` DataFrame. The `line='s'` argument adds a reference line to the plot that represents the standard normal distribution. If the 'Overall' scores follow a normal distribution, the points in the QQ plot should fall along this line.
+
+3. `plt.show()`: This line displays the plot. You need to call this function to actually see the plot if you're not working in an environment that automatically shows it (like a Jupyter notebook).
+
+In summary, this code is checking if the 'Overall' scores in the `df_gl` DataFrame follow a normal distribution.
+
+
+
+   
+
+
+
+
+
